@@ -1,9 +1,14 @@
 package com.infy.api;
 
+import java.util.Collection;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.env.Environment;
+import org.springframework.hateoas.CollectionModel;
+import org.springframework.hateoas.EntityModel;
+import org.springframework.hateoas.Link;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -19,6 +24,9 @@ import com.infy.dto.CustomerDTO;
 import com.infy.exception.InfyBankException;
 import com.infy.service.CustomerService;
 
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.linkTo;
+import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
+
 @RestController
 @RequestMapping(value = "/infybank")
 public class CustomerAPI {
@@ -30,15 +38,19 @@ public class CustomerAPI {
 	private Environment environment;
 
 	@GetMapping(value = "/customers")
-	public ResponseEntity<List<CustomerDTO>> getAllCustomers() throws InfyBankException {
-		List<CustomerDTO> customerList = customerService.getAllCustomers();
-		return new ResponseEntity<>(customerList, HttpStatus.OK);
+	public Collection<EntityModel<CustomerDTO>> getAllCustomers() throws InfyBankException {
+		List<EntityModel<CustomerDTO>> customers = customerService.getAllCustomers().stream().map(customer-> EntityModel.of(customer,
+				linkTo(methodOn(CustomerAPI.class).getCustomer(customer.getCustomerId())).withSelfRel())).collect(Collectors.toList());
+		Link link = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withSelfRel("customers");
+		return CollectionModel.of(customers, link);
 	}
 
 	@GetMapping(value = "/customers/{customerId}")
-	public ResponseEntity<CustomerDTO> getCustomer(@PathVariable Integer customerId) throws InfyBankException {
+	public EntityModel<CustomerDTO> getCustomer(@PathVariable Integer customerId) throws InfyBankException {
 		CustomerDTO customer = customerService.getCustomer(customerId);
-		return new ResponseEntity<>(customer, HttpStatus.OK);
+		Link selfLink = linkTo(methodOn(CustomerAPI.class).getCustomer(customerId)).withSelfRel();
+		Link customersLink = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withSelfRel("customers");
+		return EntityModel.of(customer, selfLink, customersLink);
 	}
 
 	@PostMapping(value = "/customers")
