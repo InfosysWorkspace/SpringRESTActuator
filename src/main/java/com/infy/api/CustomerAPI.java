@@ -30,36 +30,41 @@ import static org.springframework.hateoas.server.mvc.WebMvcLinkBuilder.methodOn;
 @RestController
 @RequestMapping(value = "/infybank")
 public class CustomerAPI {
-
 	@Autowired
 	private CustomerService customerService;
-
 	@Autowired
 	private Environment environment;
 
-	@GetMapping(value = "/customers")
-	public Collection<EntityModel<CustomerDTO>> getAllCustomers() throws InfyBankException {
-		List<EntityModel<CustomerDTO>> customers = customerService.getAllCustomers().stream().map(customer-> EntityModel.of(customer,
-				linkTo(methodOn(CustomerAPI.class).getCustomer(customer.getCustomerId())).withSelfRel())).collect(Collectors.toList());
-		Link link = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withSelfRel("customers");
-		return CollectionModel.of(customers, link);
-	}
-
+	//SpringREST Heteos
 	@GetMapping(value = "/customers/{customerId}")
 	public EntityModel<CustomerDTO> getCustomer(@PathVariable Integer customerId) throws InfyBankException {
 		CustomerDTO customer = customerService.getCustomer(customerId);
 		Link selfLink = linkTo(methodOn(CustomerAPI.class).getCustomer(customerId)).withSelfRel();
-		Link customersLink = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withSelfRel("customers");
-		return EntityModel.of(customer, selfLink, customersLink);
+		Link customersLink = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withRel("customers");
+		//customer.add(selfLink);
+		return EntityModel.of(customer,selfLink,customersLink);
 	}
 
+	//SpringREST Heteos
+	@GetMapping(value = "/customers")
+	public CollectionModel<EntityModel<CustomerDTO>> getAllCustomers() throws InfyBankException {
+		List<EntityModel<CustomerDTO>> customers = customerService.getAllCustomers().stream().map(
+				customer-> {
+					try {
+						return EntityModel.of(customer, linkTo(methodOn(CustomerAPI.class).getCustomer(customer.getCustomerId())).withSelfRel());
+					} catch (InfyBankException e) {
+						throw new RuntimeException(e);
+					}
+				}).collect(Collectors.toList());
+		Link link = linkTo(methodOn(CustomerAPI.class).getAllCustomers()).withRel("customers");
+		return CollectionModel.of(customers, link);
+	}
 	@PostMapping(value = "/customers")
 	public ResponseEntity<String> addCustomer(@RequestBody CustomerDTO customer) throws InfyBankException {
 		Integer customerId = customerService.addCustomer(customer);
 		String successMessage = environment.getProperty("API.INSERT_SUCCESS") + customerId;
 		return new ResponseEntity<>(successMessage, HttpStatus.CREATED);
 	}
-
 	@PutMapping(value = "/customers/{customerId}")
 	public ResponseEntity<String> updateCustomer(@PathVariable Integer customerId, @RequestBody CustomerDTO customer)
 			throws InfyBankException {
@@ -67,7 +72,6 @@ public class CustomerAPI {
 		String successMessage = environment.getProperty("API.UPDATE_SUCCESS");
 		return new ResponseEntity<>(successMessage, HttpStatus.OK);
 	}
-
 	@DeleteMapping(value = "/customers/{customerId}")
 	public ResponseEntity<String> deleteCustomer(@PathVariable Integer customerId) throws InfyBankException {
 		customerService.deleteCustomer(customerId);
@@ -75,3 +79,4 @@ public class CustomerAPI {
 		return new ResponseEntity<>(successMessage, HttpStatus.OK);
 	}
 }
+
